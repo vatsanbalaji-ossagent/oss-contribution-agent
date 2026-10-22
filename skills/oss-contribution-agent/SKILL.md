@@ -50,7 +50,9 @@ Many permissive repos add rules for AI and agent contributions on top of "disclo
 2. **Confirm the issue is live.** Open, unclaimed (no comment saying someone's already working it), no existing PR referencing it (open, or closed recently enough that someone may still be on it). Also check:
    - it isn't already fixed on the default branch with the issue simply left open;
    - no maintainer has questioned the approach or asked for a design discussion first;
-   - there is a converged idea of what the fix should be.
+   - there is a converged idea of what the fix should be;
+   - no open PR touches the same files and lines, even if it never mentions the issue. Cross-references miss PRs that make the same change as part of a broader cleanup; diff the open PRs against the lines you plan to change;
+   - the obvious fix doesn't undo behavior someone deliberately kept. Read the history of the tests around the code: a test asserting that odd-looking input succeeds (e.g. a regex the local engine rejects but the reference implementation accepts) means the fix is a design question for maintainers, not a quick PR.
 
    Show the operator the issue and your reasoning before writing code. If no issue in the repo qualifies, say so and ask before moving to another repo.
 
@@ -63,15 +65,21 @@ Many permissive repos add rules for AI and agent contributions on top of "disclo
 6. **Verify.** Run the full test suite and linter. If anything fails, iterate. If you can't get it passing, stop and explain why rather than forcing or suppressing a failing test. Also:
    - Regenerate derived files the repo expects, such as SRI hashes, changelog or release-note entries, and every translation file when adding a message ID. Do this after the last code edit; a hash computed before a later change is wrong.
    - For user-visible frontend changes, test in a real browser, not just unit tests. If the backend can't run locally, serve the real template and assets from a small local stand-in that also enforces the page's SRI hashes, and use real keyboard/mouse input.
+   - Search the whole test suite for the behavior or syntax you changed, including tests skipped on this platform (e.g. `#[cfg(not(target_vendor = "apple"))]`). A local "all pass" says nothing about tests that never ran here.
+   - When CI lints several targets (Linux, Windows, WASM), lint those targets too, or check the platform-specific code another way, and report what was not covered.
+   - Never filter linter or compiler output by message text. One lint can word its warnings differently (clippy's `doc_markdown` reports bare URLs without the word "backticks"); filter by lint code or not at all.
+   - Respect the operator's resource limits for builds and tests (for example a CPU cap via `cpulimit -l <pct> -i`), and ask if none is stated before starting a long run.
    - Say plainly in the report what could not be run locally (a missing language runtime, other browsers, CI-only jobs).
 
 7. **HARD STOP.** Present the full diff and a review report (what changed, which files, why, full test output, anything you're uncertain about). Do not commit, push, comment, or open a PR. Wait for the operator to respond "approved," "revise: [details]," or "reject." If the Claude Code permission prompt for a git/gh mutation appears before you've shown this report, that is a sign this step was skipped — stop and show the report instead of proceeding through the prompt.
 
-8. **On approval only:** commit under the agent's git identity, push to the fork, open the PR against upstream with the disclosure sentence as the first line of the description, following the repo's own template and any repo-specific rules. Where the repo requires the operator to open the PR or write the description, hand over the branch and the facts instead.
+8. **On approval only:** commit under the agent's git identity, push to the fork, open the PR against upstream with the disclosure sentence as the first line of the description, following the repo's own template and any repo-specific rules. Where the repo requires the operator to open the PR or write the description, hand over the branch and the facts instead. The disclosure still goes first when the operator writes the rest: reuse a disclosure sentence the operator has already written and approved, rather than relying on a trailer like "Generated with Claude Code" at the bottom.
 
 9. **Log the attempt** to `audit-log.csv`: date, repo, issue URL, AI policy checked (y/n + note), files changed, test result, human-approved (y/n), PR URL, maintainer revisions (fill in later), final status (open/merged/closed/abandoned).
 
 10. **Maintainer feedback** on an open PR goes back through Step 7. No autonomous replies, no autonomous re-pushes, ever. Bot reviewers (e.g. CodeRabbit) count as feedback, too. Before treating a failing check as your bug, check whether it fails the same way on other fork PRs: first-time contributors often wait days for a maintainer to approve their CI runs, and jobs that depend on those runs (or on secrets forks don't get) fail meanwhile.
+
+    CI usually tests the PR merged with the current default branch, so a PR can break later with no change on your side: new upstream code adds a warning your newly enabled lint rejects, or a conflict appears. This bites wide, mechanical PRs most. Rebase when a reviewer is about to look or the PR shows conflicts, not after every upstream commit, and re-run the full verification after each rebase. A rebase means a force-push, which needs its own approval; use `--force-with-lease` pinned to the commit you last pushed.
 
 ## What this skill will not do
 
